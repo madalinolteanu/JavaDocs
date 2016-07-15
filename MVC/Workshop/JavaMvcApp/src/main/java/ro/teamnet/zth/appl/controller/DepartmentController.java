@@ -6,12 +6,17 @@ package ro.teamnet.zth.appl.controller;
 
 import ro.teamnet.zth.api.annotations.MyController;
 import ro.teamnet.zth.api.annotations.MyRequestMethod;
+import ro.teamnet.zth.appl.domain.Department;
+import ro.teamnet.zth.appl.service.DepartmentServiceImpl;
+
+import java.util.List;
 
 @MyController(urlPath = "/departments")
 public class DepartmentController {
     @MyRequestMethod(urlPath = "/all")
-    public String getAllDepartments(){
+    public List<Department> getAllDepartments(){
+        DepartmentServiceImpl departmentService = new DepartmentServiceImpl();
 
-        return  "allDepartments";
+        return  departmentService.findalldepartments();
     }
 }

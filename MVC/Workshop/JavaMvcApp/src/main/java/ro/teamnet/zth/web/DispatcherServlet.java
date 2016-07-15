@@ -1,10 +1,10 @@
 package ro.teamnet.zth.web;
 
+import org.codehaus.jackson.map.ObjectMapper;
+import ro.teamnet.zth.api.annotations.Id;
 import ro.teamnet.zth.api.annotations.MyController;
 import ro.teamnet.zth.api.annotations.MyRequestMethod;
-import ro.teamnet.zth.appl.controller.DepartmentController;
-import ro.teamnet.zth.appl.controller.EmployeeController;
-import ro.teamnet.zth.appl.domain.Department;
+import ro.teamnet.zth.api.annotations.MyRequestParam;
 import ro.teamnet.zth.fmk.AnnotationScanUtils;
 import ro.teamnet.zth.fmk.MethodAttributes;
 
@@ -14,11 +14,12 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
+import java.util.List;
 
 /**
  * Created by user on 7/14/2016.
@@ -67,7 +68,7 @@ public class DispatcherServlet extends HttpServlet {
                             methodAtributes.setControllerClass(controller.getName());
                             methodAtributes.setMethodType(controllerRequestMethod.methodType());
                             methodAtributes.setMethodName(controllerMethod.getName());
-
+                            methodAtributes.setParameterTypes(controllerMethod.getParameterTypes());
                             allowedMethods.put(key,methodAtributes);
                         }
                     }
@@ -99,7 +100,7 @@ public class DispatcherServlet extends HttpServlet {
             e.printStackTrace();
         }
     }
-    protected Object dispatch(HttpServletRequest req, HttpServletResponse resp){
+    protected Object dispatch(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         String path = req.getPathInfo();
         MethodAttributes methodAttributes = allowedMethods.get(path);
         if(methodAttributes == null){
@@ -112,12 +113,26 @@ public class DispatcherServlet extends HttpServlet {
 //        return allEmplloyee;
         String controllerName = methodAttributes.getControllerClass();
         try {
+
             Class<?> className = Class.forName(controllerName);
             Object controllerInstance = className.newInstance();
             Method method = className.
-                    getMethod(methodAttributes.getMethodName());
-            Object result =  method.invoke(controllerInstance);
-            return result;
+                    getMethod(methodAttributes.getMethodName(),methodAttributes.getParameterTypes());
+
+            Parameter[] methodParameters = method.getParameters();
+            Object result = null;
+            List<Object> parameterValues = new ArrayList<>();
+            for(Parameter param : methodParameters) {
+                if (param.isAnnotationPresent(MyRequestParam.class)) {
+                    MyRequestParam annotation = param.getAnnotation(MyRequestParam.class);
+                    String name = annotation.name();
+                    String requestParamValue = req.getParameter(name);
+                    Class<?> type = param.getType();
+                    Object requestParamObject = new ObjectMapper().readValue(requestParamValue, type);
+                    parameterValues.add(requestParamObject);
+                }
+            }
+            return method.invoke(controllerInstance, parameterValues.toArray());
 
 
         } catch (ClassNotFoundException e) {
@@ -135,7 +150,9 @@ public class DispatcherServlet extends HttpServlet {
     }
     protected void replay(Object r, HttpServletRequest req, HttpServletResponse resp) throws IOException {
         PrintWriter out = resp.getWriter();
-        out.printf(String.valueOf(allowedMethods.toString()));
+        ObjectMapper objectmapper = new ObjectMapper();
+        String valueasString= objectmapper.writeValueAsString(r);
+        out.printf(valueasString);
     }
     private void sendExceptionError(Exception e, HttpServletRequest req, HttpServletResponse resp) {
 
