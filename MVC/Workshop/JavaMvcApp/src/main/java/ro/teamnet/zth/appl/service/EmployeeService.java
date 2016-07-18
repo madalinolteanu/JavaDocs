@@ -13,4 +13,5 @@ import java.util.List;
 public interface EmployeeService {
     List<Employee> findallemployees();
     Employee findOneEmployee(Long Id);
+    void deleteEmployee(Long id);
 }

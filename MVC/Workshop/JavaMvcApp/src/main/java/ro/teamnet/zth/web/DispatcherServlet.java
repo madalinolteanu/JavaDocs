@@ -14,6 +14,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
@@ -38,11 +39,17 @@ public class DispatcherServlet extends HttpServlet {
         //super.doGet(req, resp);
     }
 
+
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         //instructiuni de delegare
         //super.doPost(req, resp);
         dispatchReply("POST",req,resp);
+    }
+
+    @Override
+    protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        dispatchReply("DELETE",req,resp);
     }
 
     @Override
@@ -62,7 +69,7 @@ public class DispatcherServlet extends HttpServlet {
                                     controllerMethod.getAnnotation(MyRequestMethod.class);
                             String controllerMethodUrlPath = controllerRequestMethod.urlPath();
                             // construies keya pentru HashMap
-                            String key = controllerUrlPath + controllerMethodUrlPath;
+                            String key = controllerUrlPath + controllerMethodUrlPath + controllerRequestMethod.methodType();
 
                             MethodAttributes methodAtributes = new MethodAttributes();
                             methodAtributes.setControllerClass(controller.getName());
@@ -101,7 +108,7 @@ public class DispatcherServlet extends HttpServlet {
         }
     }
     protected Object dispatch(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        String path = req.getPathInfo();
+        String path = req.getPathInfo() + req.getMethod();
         MethodAttributes methodAttributes = allowedMethods.get(path);
         if(methodAttributes == null){
             /*Nu putem procesa URL*/
@@ -114,9 +121,11 @@ public class DispatcherServlet extends HttpServlet {
         String controllerName = methodAttributes.getControllerClass();
         try {
 
-            Class<?> className = Class.forName(controllerName);
-            Object controllerInstance = className.newInstance();
-            Method method = className.
+            Class<?> controllerClass = Class.forName(controllerName);
+            Constructor<?>[] constructors = controllerClass.getConstructors();
+
+            Object controllerInstance = controllerClass.newInstance();
+            Method method = controllerClass.
                     getMethod(methodAttributes.getMethodName(),methodAttributes.getParameterTypes());
 
             Parameter[] methodParameters = method.getParameters();
@@ -128,7 +137,11 @@ public class DispatcherServlet extends HttpServlet {
                     String name = annotation.name();
                     String requestParamValue = req.getParameter(name);
                     Class<?> type = param.getType();
-                    Object requestParamObject = new ObjectMapper().readValue(requestParamValue, type);
+                    Object requestParamObject = requestParamValue;
+                    if(!type.equals(String.class)){
+                         requestParamObject = new ObjectMapper().readValue(requestParamValue, type);
+                    }
+
                     parameterValues.add(requestParamObject);
                 }
             }
